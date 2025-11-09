@@ -29,9 +29,7 @@ functions:
     events:
       - stream:
           arn:
-            Fn::GetAtt:
-              - TablaComentarios
-              - StreamArn  # Se activa cuando DynamoDB inserta un comentario
+            Fn:Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${self:provider.environment.TABLE_NAME}/stream/NEW_IMAGE
           batchSize: 5
           startingPosition: TRIM_HORIZON
 

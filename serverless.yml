@@ -11,7 +11,6 @@ provider:
     role: arn:aws:iam::670692919870:role/LabRole	
   environment:
     TABLE_NAME: ${sls:stage}-t_comentarios
-    S3_BUCKET_NAME: ${self:service}-${sls:stage}-comentarios-ingesta
 
 functions:
   crear:
@@ -22,26 +21,9 @@ functions:
           method: post
           cors: true
           integration: lambda
-  
-  # identificar aviso dynamostream
-  notificar:
-    handler: notificar.lambda_handler
-    events:
-      - stream:
-          arn:
-            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${self:provider.environment.TABLE_NAME}/stream/NEW_IMAGE
-          batchSize: 5
-          startingPosition: TRIM_HORIZON
 
 resources:
   Resources:
-    # Bucket de ingesta S3
-    ComentariosBucket:
-      Type: AWS::S3::Bucket
-      Properties:
-        BucketName: ${self:provider.environment.S3_BUCKET_NAME}
-
-    # Tabla de Dynamo   
     TablaComentarios:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -58,6 +40,3 @@ resources:
             KeyType: RANGE
         # Set the capacity to auto-scale
         BillingMode: PAY_PER_REQUEST
-        # Notificar Inserciones
-        StreamSpecification:
-          StreamViewType: NEW_IMAGE

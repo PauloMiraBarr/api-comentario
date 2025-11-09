@@ -3,14 +3,14 @@ service: api-comentario
 
 provider:
   name: aws
-  runtime: python3.13	
-  # Default memory size for functions (default: 1024MB)
+  runtime: python3.13
   memorySize: 1024
   timeout: 20
   iam:
-    role: arn:aws:iam::670692919870:role/LabRole	
+    role: arn:aws:iam::670692919870:role/LabRole
   environment:
     TABLE_NAME: ${sls:stage}-t_comentarios
+    S3_BUCKET_NAME: ${sls:stage}-s3-comentarios
 
 functions:
   crear:
@@ -21,6 +21,35 @@ functions:
           method: post
           cors: true
           integration: lambda
+
+  procesarStream:
+    handler: stream_processor.lambda_handler
+    events:
+      - stream:
+          type: dynamodb
+          batchSize: 1
+          startingPosition: LATEST
+          arn:
+            Fn::GetAtt:
+              - TablaComentarios # Usa el recurso que crea el serverless
+              - StreamArn
+    iamRoleStatements: # StackOverflow reference
+      - Effect: Allow
+        Action:
+          - dynamodb:ListStreams
+          - dynamodb:DescribeTable
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
+        Resource:
+          - "Fn::Join":
+              - ""
+              - [
+                  "arn:aws:dynamodb:",
+                  {"Ref": "AWS::Region"},
+                  ":",
+                  {"Ref": "AWS::AccountId"},
+                  ":table/${self:provider.environment.TABLE_NAME}"
+                ]
 
 resources:
   Resources:
@@ -38,5 +67,11 @@ resources:
             KeyType: HASH
           - AttributeName: uuid
             KeyType: RANGE
-        # Set the capacity to auto-scale
         BillingMode: PAY_PER_REQUEST
+        StreamSpecification:
+          StreamViewType: NEW_IMAGE
+
+    ComentariosBucket: # Creamos el Bucket de Ingesta
+      Type: 'AWS::S3::Bucket'
+      Properties:
+        BucketName: ${self:provider.environment.S3_BUCKET_NAME}
